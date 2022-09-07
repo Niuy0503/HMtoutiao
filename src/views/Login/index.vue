@@ -3,7 +3,7 @@
     <!-- 头部导航 -->
     <van-nav-bar title="登录" class="nav-bar"></van-nav-bar>
     <!-- 表单 -->
-    <van-form @submit="onSubmit" class="form">
+    <van-form @submit="onSubmit" class="form" ref="form">
       <!--表单-->
       <!-- van-field: 输入框，text, password,文本域...
       v-model: 用户输入的值
@@ -15,14 +15,7 @@
         v-model="mobile"
         name="mobile"
         placeholder="请输入手机号"
-        :rules="[
-          { required: true, message: '请填写手机号' },
-          {
-            pattern:
-              /^(?:(?:\+|00)86)?1(?:(?:3[\d])|(?:4[5-79])|(?:5[0-35-9])|(?:6[5-7])|(?:7[0-8])|(?:8[\d])|(?:9[189]))\d{8}$/,
-            message: '手机号格式错误'
-          }
-        ]"
+        :rules="mobileRules"
       >
         <template #label>
           <span class="toutiao toutiao-shouji"></span>
@@ -33,16 +26,29 @@
         type="text"
         name="code"
         placeholder="请输入验证码"
-        :rules="[
-          { required: true, message: '请填写验证码' },
-          {
-            pattern: /[0-9]{6}/,
-            message: '验证码格式错误'
-          }
-        ]"
+        :rules="codeRules"
       >
         <template #label>
           <span class="toutiao toutiao-yanzhengma"></span>
+        </template>
+        <template #button>
+          <van-button
+            class="btn"
+            block
+            round
+            size="small"
+            type="default"
+            native-type="button"
+            v-if="isShowCodeBtn"
+            @click="sendCode"
+            >获取验证码</van-button
+          >
+          <van-count-down
+            v-else
+            format="ss秒"
+            :time="60 * 1000"
+            @finish="isShowCodeBtn = true"
+          ></van-count-down>
         </template>
       </van-field>
 
@@ -54,16 +60,72 @@
 </template>
 
 <script>
+import { mobileRules, codeRules } from './rule'
+import { login, sendCodeAPI } from '@/api'
+import { mapMutations } from 'vuex'
 export default {
   data() {
     return {
       mobile: '',
-      code: ''
+      code: '',
+      mobileRules,
+      codeRules,
+      isShowCodeBtn: true
     }
   },
   methods: {
-    onSubmit(values) {
-      console.log('submit', values)
+    ...mapMutations(['Set_Token']),
+    loading() {
+      this.$toast.loading({
+        message: '加载中...',
+        forbidClick: true,
+        duration: 0
+      })
+    },
+    async onSubmit() {
+      try {
+        const { data } = await login(this.mobile, this.code)
+        console.log(data)
+        this.Set_Token(data)
+        this.$router.push('/profile')
+        this.$toast.success('登录成功！')
+      } catch (error) {
+        // this.$toast.fail('登录失败！')
+        // 细分一下失败:提示用户手机号和验证码
+        // 如果是手机号或者验证码错了，用户能知道
+        // error: 1. js抛的错2. axios封装的error对象
+        // axios封装的error对象
+        // error.response. data 后端返回的数据
+        // error.response.status后端返回的状态码
+        if (error.response && error.response.status === 400) {
+          this.$toast.fail(error.response.data.message)
+        } else {
+          console.dir(error)
+          this.$toast.clear()
+          throw error
+        }
+      }
+    },
+    async sendCode() {
+      await this.$refs.form.validate('mobile')
+      this.isShowCodeBtn = false
+
+      this.loading()
+      try {
+        await sendCodeAPI(this.mobile)
+        this.$toast.success('发送验证码成功！')
+      } catch (err) {
+        // this.$toast.fail('发送验证码失败！')
+        if (
+          err.response &&
+          (err.response.status === 429 || err.response.status === 404)
+        ) {
+          this.$toast.fail(err.response.data.message)
+        } else {
+          this.$toast.clear()
+          throw err
+        }
+      }
     }
   }
 }
@@ -88,5 +150,10 @@ export default {
   .toutiao {
     font-size: 40px;
   }
+}
+.btn {
+  height: 0.64rem;
+  background-color: #eee;
+  color: #a58594;
 }
 </style>
