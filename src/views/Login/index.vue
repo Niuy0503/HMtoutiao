@@ -84,7 +84,9 @@ export default {
     },
     async onSubmit() {
       try {
-        const { data } = await login(this.mobile, this.code)
+        const {
+          data: { data }
+        } = await login(this.mobile, this.code)
         console.log(data)
         this.Set_Token(data)
         this.$router.push('/profile')
