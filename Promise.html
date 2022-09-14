@@ -17,6 +17,12 @@
         // 5. promise状态只能改变一次，pending-->fulfilled，pending-->rejected不能完成态拒绝态相互转换
         //6.当promise在执行过程当中，任何错误都会导致promise变成失败态
         // 7.promise必须有then方法，onFulfilled: 成功的回调，onRejected:失败的回调
+        // 8.设计模式:发布订阅模式: 订阅一些行为， 再在合适时机去执行(发布) 
+        // 一最简单: DOM事件- vue当中的自定义事件: 1.$emit 2.eventBus
+        // 一promise 异步的时候
+        // 9. promise除了链式调用以外，还可以多次调用
+        // 10. promise的链调用
+        //11.then方法出错，在下一个then中能够拿到错误的原因
 
         const PENDING = 'Pending'
         const FULFILLED = 'fulfilled'
@@ -52,22 +58,54 @@
                 }
             }
             then(onFulfilled, onRejected) {
-                if (this.status === FULFILLED) {
-                    onFulfilled(this.value)
-                }
-                if (this.status === REJECTED) {
-                    onRejected(this.reason)
-                }
-                if (this.status === PENDING) {
-                    // this.onFulfilled = onFulfilled
-                    // this.onRejected = onRejected
-                    this.onFulfilledCallBacks.push(() => {
-                        onFulfilled(this.value)
-                    })
-                    this.onRejectedCallBacks.push(() => {
-                        onRejected(this.reason)
-                    })
-                }
+                const p1 = new Promise((resolve, reject) => {
+                    if (this.status === FULFILLED) {
+                        queueMicrotask(() => {
+                            try {
+                                const x = onFulfilled(this.value)
+                                resolve(x)
+                            } catch (err) {
+                                reject(err)
+                            }
+                        })
+                    }
+                    if (this.status === REJECTED) {
+                        queueMicrotask(() => {
+                            try {
+                                const x = onRejected(this.reason)
+                                resolve(x)
+                            } catch (err) {
+                                reject(err)
+                            }
+                        })
+                    }
+                    if (this.status === PENDING) {
+                        // this.onFulfilled = onFulfilled
+                        // this.onRejected = onRejected
+                        this.onFulfilledCallBacks.push(() => {
+                            queueMicrotask(() => {
+                                try {
+                                    const x = onFulfilled(this.value)
+                                    resolve(x)
+                                } catch (err) {
+                                    reject(err)
+                                }
+                            })
+                        })
+                        this.onRejectedCallBacks.push(() => {
+                            queueMicrotask(() => {
+                                try {
+                                    const x = onRejected(this.reason)
+                                    resolve(x)
+                                } catch (err) {
+                                    reject(err)
+                                }
+                            })
+                        })
+                    }
+                })
+                return p1
+
             }
         }
 
@@ -76,16 +114,7 @@
                 resolve('成功')
                 // reject('失败')
             }, 3000)
-        }
-        )
-
-        p.then(
-            (res) => console.log('第一次then', res),
-        )
-
-        p.then(
-            (res) => console.log('第二次then', res),
-        )
+        })
     </script>
 </body>
 

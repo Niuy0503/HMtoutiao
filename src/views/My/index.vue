@@ -116,7 +116,7 @@ export default {
         title: '黑马头条',
         message: '是否确认退出该账号'
       })
-      this.$store.commit('SET_TOKEN', {})
+      this.$store.commit('Set_Token', {})
     },
     async getUserInfo() {
       try {
